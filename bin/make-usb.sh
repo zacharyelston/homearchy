@@ -46,7 +46,7 @@ if [[ -b $TARGET ]]; then
   dev=$(basename "$(readlink -f "$TARGET")")
   [[ -e /sys/block/$dev ]] || die "$TARGET is a partition or not a whole disk"
   [[ $(cat "/sys/block/$dev/removable") == 1 ]] || die "$TARGET is not a removable device; refusing"
-  if lsblk -nro MOUNTPOINTS "$TARGET" | grep -q .; then
+  if [[ -n $(lsblk -nro MOUNTPOINTS "$TARGET" | tr -d '[:space:]') ]]; then
     die "$TARGET has mounted partitions; unmount them first"
   fi
   (( $(lsblk -bdno SIZE "$TARGET") > iso_bytes + cidata_bytes + 4 * 1024 * 1024 )) || die "$TARGET is too small"
@@ -77,7 +77,7 @@ size_sectors=$(( (cidata_bytes + 511) / 512 ))
 printf 'start=%s, size=%s, type=0c\n' "$start_sector" "$size_sectors" \
   | sfdisk --quiet --append --no-reread --no-tell-kernel --wipe never "$disk" >/dev/null \
   || die "sfdisk could not append the CIDATA partition"
-partnum=$(sfdisk -l -o Device,Start "$disk" | awk -v s="$start_sector" '$2==s {print $1}' | grep -oE '[0-9]+$' | tail -1)
+partnum=$(sfdisk -l -o Device,Start "$disk" | awk -v s="$start_sector" '$2==s {print $1}' | sed -E 's/.*[^0-9]([0-9]+)$/\1/' | tail -1)
 [[ -n $partnum ]] || die "could not find the CIDATA partition after creating it"
 
 if [[ -b $disk ]]; then

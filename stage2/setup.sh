@@ -25,7 +25,8 @@ echo "=== omarchy-haos stage2 $(date -Is) (user: ${REAL_USER:-none}) ==="
 
 step() { echo; echo "==> $*"; }
 ufw_rule() {   # add a ufw rule once
-  if ! ufw status | grep -qF "$2"; then ufw $1 >/dev/null; fi
+  local status; status=$(ufw status)
+  if ! grep -qF -- "$2" <<<"$status"; then ufw $1 >/dev/null; fi
 }
 
 step "Installing virtualization packages"
@@ -38,7 +39,8 @@ virsh net-autostart default >/dev/null 2>&1 || true
 virsh net-start default >/dev/null 2>&1 || true
 
 step "Firewall rules for VM traffic (ufw)"
-if ufw status | grep -q '^Status: active'; then
+ufw_status=$(ufw status 2>/dev/null || true)
+if grep -q '^Status: active' <<<"$ufw_status"; then
   ufw_rule "allow in on virbr0 comment libvirt-nat"        "Anywhere on virbr0"
   ufw_rule "allow out on virbr0 comment libvirt-nat"       "ALLOW OUT   Anywhere on virbr0"
   ufw_rule "route allow in on virbr0 comment libvirt-nat"  "ALLOW FWD   Anywhere on virbr0"
@@ -53,10 +55,10 @@ fi
 
 if [[ ${HAOS_SKIP_BRIDGE:-0} != 1 ]]; then
   step "Bridging the wired interface as $BRIDGE_NAME"
-  if nmcli -t -f NAME connection show | grep -qx "$BRIDGE_NAME"; then
+  if grep -qx "$BRIDGE_NAME" <<<"$(nmcli -t -f NAME connection show)"; then
     echo "    $BRIDGE_NAME already defined"
   else
-    wired=$(nmcli -t -f DEVICE,TYPE,STATE device status | awk -F: '$2=="ethernet" && $3!="unavailable" {print $1; exit}')
+    wired=$(nmcli -t -f DEVICE,TYPE,STATE device status | awk -F: '$2=="ethernet" && $3!="unavailable" && !f {print $1; f=1}')
     [[ -n $wired ]] || { echo "    no wired interface found; set HAOS_SKIP_BRIDGE=1 to use NAT instead"; exit 1; }
     mac=$(cat "/sys/class/net/$wired/address")
     old_con=$(nmcli -t -f NAME,DEVICE connection show --active | awk -F: -v d="$wired" '$2==d {print $1}')
@@ -72,10 +74,12 @@ if [[ ${HAOS_SKIP_BRIDGE:-0} != 1 ]]; then
     nmcli connection up "$BRIDGE_NAME" >/dev/null || true
   fi
   for _ in $(seq 1 30); do
-    ip -4 -o addr show "$BRIDGE_NAME" 2>/dev/null | grep -q inet && break
+    [[ -n $(ip -4 -o addr show "$BRIDGE_NAME" 2>/dev/null) ]] && break
     sleep 2
   done
-  ip -4 -o addr show "$BRIDGE_NAME" | awk '{print "    " $2 " " $4}' || { echo "    $BRIDGE_NAME has no IPv4 address"; exit 1; }
+  br_addr=$(ip -4 -o addr show "$BRIDGE_NAME" | awk '{print $4}')
+  [[ -n $br_addr ]] || { echo "    $BRIDGE_NAME has no IPv4 address"; exit 1; }
+  echo "    $BRIDGE_NAME $br_addr"
 
   step "libvirt network '$LIBVIRT_NET' on $BRIDGE_NAME"
   if ! virsh net-info "$LIBVIRT_NET" >/dev/null 2>&1; then
@@ -117,7 +121,7 @@ fi
 step "Virtual machine '$VM_NAME'"
 if virsh dominfo "$VM_NAME" >/dev/null 2>&1; then
   echo "    VM exists"
-  cur_net=$(virsh domiflist "$VM_NAME" | awk 'NR>2 && $2=="network" {print $3; exit}')
+  cur_net=$(virsh domiflist "$VM_NAME" | awk 'NR>2 && $2=="network" && !f {print $3; f=1}')
   want_net=${VM_NET#network=}
   if [[ -n $cur_net && $cur_net != "$want_net" ]]; then
     echo "    switching NIC from '$cur_net' to '$want_net' (VM restarts)"
@@ -147,8 +151,8 @@ fi
 step "Waiting for the VM's IP address"
 ip=""
 for _ in $(seq 1 60); do
-  ip=$(virsh domifaddr "$VM_NAME" --source arp 2>/dev/null | awk '/ipv4/ {sub(/\/.*/,"",$4); print $4; exit}')
-  [[ -z $ip ]] && ip=$(virsh domifaddr "$VM_NAME" 2>/dev/null | awk '/ipv4/ {sub(/\/.*/,"",$4); print $4; exit}')
+  ip=$(virsh domifaddr "$VM_NAME" --source arp 2>/dev/null | awk '/ipv4/ && !f {sub(/\/.*/,"",$4); print $4; f=1}')
+  [[ -z $ip ]] && ip=$(virsh domifaddr "$VM_NAME" 2>/dev/null | awk '/ipv4/ && !f {sub(/\/.*/,"",$4); print $4; f=1}')
   [[ -n $ip ]] && break
   sleep 5
 done

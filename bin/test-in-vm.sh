@@ -17,6 +17,7 @@ DISK_BYTES=$((40 * 1024 * 1024 * 1024))
 TIMEOUT_MIN=${TIMEOUT_MIN:-40}
 V() { sudo virsh "$@"; }
 
+RESUME=0; [[ ${1:-} == --wait ]] && RESUME=1   # skip build + VM creation, just wait/provision
 if [[ ${1:-} == --destroy ]]; then
   V destroy "$VM" >/dev/null 2>&1 || true
   V undefine "$VM" --nvram >/dev/null 2>&1 || true
@@ -25,6 +26,7 @@ if [[ ${1:-} == --destroy ]]; then
 fi
 
 mkdir -p "$T"
+if (( ! RESUME )); then
 [[ -f $T/test_key ]] || ssh-keygen -t ed25519 -N "" -q -C "omarchy-haos-test" -f "$T/test_key"
 cat > "$T/test.env" <<ENV
 USERNAME=tester
@@ -60,13 +62,14 @@ sudo virt-install \
   --graphics vnc,listen=127.0.0.1 --video virtio \
   --osinfo detect=off,require=off --noautoconsole >/dev/null
 echo "    console: virt-viewer --connect qemu:///system $VM   (or: sudo virsh screenshot $VM /tmp/s.ppm)"
+fi
 
 echo "==> Waiting for the unattended install and first boot (timeout ${TIMEOUT_MIN} min)"
 SSH=(ssh -i "$T/test_key" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -o BatchMode=yes -o LogLevel=ERROR)
 deadline=$(( $(date +%s) + TIMEOUT_MIN * 60 ))
 ip=""
 while (( $(date +%s) < deadline )); do
-  ip=$(V domifaddr "$VM" 2>/dev/null | awk '/ipv4/ {sub(/\/.*/,"",$4); print $4; exit}')
+  ip=$(V domifaddr "$VM" 2>/dev/null | awk '/ipv4/ && !f {sub(/\/.*/,"",$4); print $4; f=1}')
   if [[ -n $ip ]] && "${SSH[@]}" "tester@$ip" true 2>/dev/null; then
     echo "    installed system is up at $ip"
     break
