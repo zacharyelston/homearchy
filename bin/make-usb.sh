@@ -13,7 +13,7 @@ BUILD="$REPO/build"
 CONFIG="${CONFIG:-$REPO/config.env}"
 die() { echo "error: $*" >&2; exit 1; }
 need() { command -v "$1" >/dev/null || die "missing tool: $1 (install with: omarchy-pkg-add $2)"; }
-need sgdisk gptfdisk; need gpg gnupg; need sha256sum coreutils; need curl curl
+need sfdisk util-linux; need gpg gnupg; need sha256sum coreutils; need curl curl
 
 TARGET=${1:-}
 [[ -n $TARGET ]] || { sed -n 2,8p "$0"; exit 1; }
@@ -67,14 +67,18 @@ else
 fi
 
 echo "==> Appending CIDATA partition"
-# The ISO carries a hybrid MBR + GPT sized to the ISO; move the backup GPT to
-# the end of the medium so a new partition can follow the ISO's own ones.
-sgdisk -e "$disk" >/dev/null
-sgdisk -n "0:0:+$(( (cidata_bytes + 1048575) / 1048576 ))M" -t 0:0700 -c 0:CIDATA "$disk" >/dev/null
-partnum=$(sgdisk -p "$disk" | awk '$NF=="CIDATA" {print $1}' | tail -1)
+# The archiso image is an isohybrid: the kernel reads its MBR (two entries:
+# the ISO9660 data and the EFI image); its GPT copy is not a valid table.
+# Add a third MBR primary partition right after the last one.
+last_end=$(sfdisk -l -o End "$disk" 2>/dev/null | awk '/^[0-9]+$/ && $1>m {m=$1} END{print m}')
+[[ $last_end =~ ^[0-9]+$ ]] || die "could not read the ISO's partition table"
+start_sector=$(( (last_end + 2048) / 2048 * 2048 ))
+size_sectors=$(( (cidata_bytes + 511) / 512 ))
+printf 'start=%s, size=%s, type=0c\n' "$start_sector" "$size_sectors" \
+  | sfdisk --quiet --append --no-reread --no-tell-kernel --wipe never "$disk" >/dev/null \
+  || die "sfdisk could not append the CIDATA partition"
+partnum=$(sfdisk -l -o Device,Start "$disk" | awk -v s="$start_sector" '$2==s {print $1}' | grep -oE '[0-9]+$' | tail -1)
 [[ -n $partnum ]] || die "could not find the CIDATA partition after creating it"
-start_sector=$(sgdisk -i "$partnum" "$disk" | awk -F': ' '/First sector/ {print $2}' | awk '{print $1}')
-[[ $start_sector =~ ^[0-9]+$ ]] || die "could not read CIDATA start sector"
 
 if [[ -b $disk ]]; then
   partprobe "$disk" 2>/dev/null || true
