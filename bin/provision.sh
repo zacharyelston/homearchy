@@ -19,7 +19,7 @@ HOST=${1:-}; USER_=${2:-${USERNAME:-}}
 target="$USER_@$HOST"
 SSH=(ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 -o BatchMode=yes)
 UNIT=omarchy-haos-stage2
-EXTRA_ENV=()
+EXTRA_ENV=("-E" "STAGE2_USER=$USER_")
 [[ -n ${HAOS_SKIP_VM:-} ]] && EXTRA_ENV+=("-E" "HAOS_SKIP_VM=$HAOS_SKIP_VM")
 [[ -n ${HAOS_SKIP_BRIDGE:-} ]] && EXTRA_ENV+=("-E" "HAOS_SKIP_BRIDGE=$HAOS_SKIP_BRIDGE")
 
@@ -43,7 +43,7 @@ fi
 
 echo "==> Following progress (reconnects if the bridge switch drops the session)"
 while :; do
-  state=$("${SSH[@]}" "$target" "systemctl is-active $UNIT" 2>/dev/null || echo "unreachable")
+  state=$("${SSH[@]}" "$target" "systemctl is-active $UNIT" 2>/dev/null) || state=${state:-unreachable}
   case $state in
     active|activating) sleep 10 ;;
     unreachable) sleep 5 ;;

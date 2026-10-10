@@ -17,7 +17,7 @@ HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck disable=SC1091
 source "$HERE/haos.env"
 LOG=/var/log/omarchy-haos-stage2.log
-REAL_USER=${SUDO_USER:-$(logname 2>/dev/null || echo "")}
+REAL_USER=${STAGE2_USER:-${SUDO_USER:-$(logname 2>/dev/null || echo "")}}
 
 [[ $EUID -eq 0 ]] || { echo "run as root: sudo bash $0"; exit 1; }
 exec > >(tee -a "$LOG") 2>&1
@@ -28,6 +28,12 @@ ufw_rule() {   # add a ufw rule once
   local status; status=$(ufw status)
   if ! grep -qF -- "$2" <<<"$status"; then ufw $1 >/dev/null; fi
 }
+
+step "Syncing package databases and updating the system"
+# A fresh install has no synced databases. Do what `omarchy update` does
+# (its marker variable satisfies Omarchy's pacman guard), so the new packages
+# land on a current system instead of a partial upgrade.
+env LC_ALL=C OMARCHY_UPDATE_PACMAN=1 pacman -Syu --noconfirm --overwrite '/usr/share/omarchy/*'
 
 step "Installing virtualization packages"
 omarchy-pkg-add qemu-desktop libvirt virt-install virt-manager virt-viewer edk2-ovmf dnsmasq swtpm bridge-utils

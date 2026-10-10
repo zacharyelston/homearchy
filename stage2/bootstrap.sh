@@ -21,4 +21,4 @@ else
   git clone --depth 1 "$REPO_URL" "$DEST"
 fi
 
-exec sudo bash "$DEST/stage2/setup.sh"
+exec sudo env STAGE2_USER="$USER" bash "$DEST/stage2/setup.sh"
