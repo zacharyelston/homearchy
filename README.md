@@ -87,7 +87,7 @@ On the target: wired Ethernet during install, Secure Boot off. Whole disk is wip
    its MAC and therefore its IP), opens ufw for VM traffic, downloads Home
    Assistant OS and creates the `homeassistant` VM (4 GB RAM, 2 vCPUs, 32 GB
    disk, autostart). It prints the VM's LAN address; onboarding is at
-   `http://<ip>:8123` or `http://homeassistant.local:8123`. Log:
+   `http://<ip>/` or `http://homeassistant.local/` (Home Assistant OS 18 serves the UI on port 80; the Supervisor observer is on port 4357). Log:
    `/var/log/homearchy-stage2.log`. Re-running is safe.
 
 ## Testing without hardware

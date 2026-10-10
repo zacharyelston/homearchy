@@ -166,7 +166,8 @@ done
 echo
 echo "=== stage2 complete ==="
 if [[ -n $ip ]]; then
-  echo "Home Assistant: http://$ip:8123  (also http://homeassistant.local:8123)"
+  echo "Home Assistant: http://$ip/  (also http://homeassistant.local/)"
+  echo "Observer:       http://$ip:4357/"
 else
   echo "VM is running but has no IP yet. Check later: virsh domifaddr $VM_NAME --source arp"
 fi
