@@ -1,0 +1,8 @@
+config.env
+build/
+*.iso
+*.iso.sha256
+*.iso.sig
+*.img
+*.qcow2
+*.qcow2.xz
