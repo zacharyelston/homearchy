@@ -16,12 +16,12 @@ set -euo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck disable=SC1091
 source "$HERE/haos.env"
-LOG=/var/log/omarchy-haos-stage2.log
+LOG=/var/log/homearchy-stage2.log
 REAL_USER=${STAGE2_USER:-${SUDO_USER:-$(logname 2>/dev/null || echo "")}}
 
 [[ $EUID -eq 0 ]] || { echo "run as root: sudo bash $0"; exit 1; }
 exec > >(tee -a "$LOG") 2>&1
-echo "=== omarchy-haos stage2 $(date -Is) (user: ${REAL_USER:-none}) ==="
+echo "=== homearchy stage2 $(date -Is) (user: ${REAL_USER:-none}) ==="
 
 step() { echo; echo "==> $*"; }
 ufw_rule() {   # add a ufw rule once

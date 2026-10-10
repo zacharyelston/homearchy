@@ -11,7 +11,7 @@ set -euo pipefail
 
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 T="$REPO/build/test"
-VM=omarchy-haos-test
+VM=homearchy-test
 IMG_DIR=/var/lib/libvirt/images/$VM
 DISK_BYTES=$((40 * 1024 * 1024 * 1024))
 TIMEOUT_MIN=${TIMEOUT_MIN:-40}
@@ -27,7 +27,7 @@ fi
 
 mkdir -p "$T"
 if (( ! RESUME )); then
-[[ -f $T/test_key ]] || ssh-keygen -t ed25519 -N "" -q -C "omarchy-haos-test" -f "$T/test_key"
+[[ -f $T/test_key ]] || ssh-keygen -t ed25519 -N "" -q -C "homearchy-test" -f "$T/test_key"
 cat > "$T/test.env" <<ENV
 USERNAME=tester
 PASSWORD='tester-pw'

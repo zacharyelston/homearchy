@@ -1,15 +1,15 @@
 #!/bin/bash
 # One-liner entry point for stage 2, run on the freshly installed Omarchy box:
 #
-#   curl -fsSL https://raw.githubusercontent.com/GH_USER/omarchy-haos/main/stage2/bootstrap.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/zacharyelston/homearchy/main/stage2/bootstrap.sh | bash
 #
 # Offline, from the install stick (it stays readable after the install):
 #
 #   bash /run/media/$USER/CIDATA/stage2/bootstrap.sh --local
 #
 set -euo pipefail
-REPO_URL="https://github.com/GH_USER/omarchy-haos.git"
-DEST="$HOME/omarchy-haos"
+REPO_URL="https://github.com/zacharyelston/homearchy.git"
+DEST="$HOME/homearchy"
 
 if [[ ${1:-} == --local ]]; then
   src=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)

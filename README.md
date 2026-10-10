@@ -1,4 +1,4 @@
-# omarchy-haos
+# homearchy
 
 Infrastructure-as-code for a small always-on box that is both an
 [Omarchy](https://omarchy.org) Linux desktop and a Home Assistant hub.
@@ -74,7 +74,7 @@ On the target: wired Ethernet during install, Secure Boot off. Whole disk is wip
    Or at the box's own terminal, with network:
 
    ```
-   curl -fsSL https://raw.githubusercontent.com/GH_USER/omarchy-haos/main/stage2/bootstrap.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/zacharyelston/homearchy/main/stage2/bootstrap.sh | bash
    ```
 
    Or offline, from the still-inserted stick:
@@ -88,7 +88,7 @@ On the target: wired Ethernet during install, Secure Boot off. Whole disk is wip
    Assistant OS and creates the `homeassistant` VM (4 GB RAM, 2 vCPUs, 32 GB
    disk, autostart). It prints the VM's LAN address; onboarding is at
    `http://<ip>:8123` or `http://homeassistant.local:8123`. Log:
-   `/var/log/omarchy-haos-stage2.log`. Re-running is safe.
+   `/var/log/homearchy-stage2.log`. Re-running is safe.
 
 ## Testing without hardware
 
