@@ -29,9 +29,17 @@ until "${SSH[@]}" "$target" true 2>/dev/null; do sleep 5; done
 echo "==> Copying stage2/"
 rsync -a --delete -e "${SSH[*]}" "$REPO/stage2/" "$target:omarchy-haos-stage2/"
 
-echo "==> Starting stage 2 on $HOST (sudo will ask for $USER_'s password)"
-ssh -t -o StrictHostKeyChecking=accept-new "$target" \
-  "sudo systemctl reset-failed $UNIT 2>/dev/null; sudo systemd-run --unit=$UNIT --collect ${EXTRA_ENV[*]} -p WorkingDirectory=\$HOME bash \$HOME/omarchy-haos-stage2/setup.sh"
+stage_cmd() {  # $1 = sudo invocation to prefix
+  echo "$1 systemctl reset-failed $UNIT 2>/dev/null; $1 systemd-run --unit=$UNIT --collect ${EXTRA_ENV[*]} -p WorkingDirectory=\$HOME bash \$HOME/omarchy-haos-stage2/setup.sh"
+}
+if [[ -n ${SUDO_PASS:-} ]]; then
+  # Non-interactive (used by bin/test-in-vm.sh): feed the password to sudo -S.
+  echo "==> Starting stage 2 on $HOST (non-interactive sudo)"
+  printf '%s\n%s\n' "$SUDO_PASS" "$SUDO_PASS" | "${SSH[@]}" "$target" "$(stage_cmd 'sudo -S -p ""')"
+else
+  echo "==> Starting stage 2 on $HOST (sudo will ask for $USER_'s password)"
+  ssh -t -o StrictHostKeyChecking=accept-new "$target" "$(stage_cmd sudo)"
+fi
 
 echo "==> Following progress (reconnects if the bridge switch drops the session)"
 while :; do
@@ -42,7 +50,7 @@ while :; do
     *) break ;;
   esac
 done
-"${SSH[@]}" "$target" "sudo -n tail -n 40 /var/log/omarchy-haos-stage2.log 2>/dev/null || tail -n 40 /var/log/omarchy-haos-stage2.log"
+"${SSH[@]}" "$target" "tail -n 40 /var/log/omarchy-haos-stage2.log 2>/dev/null || sudo -n tail -n 40 /var/log/omarchy-haos-stage2.log"
 if [[ $state == inactive ]]; then
   echo "==> stage 2 finished on $HOST"
 else

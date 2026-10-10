@@ -94,7 +94,7 @@ echo "==> Running stage 2 (HAOS_SKIP_VM=1) via provision.sh"
 eval "$(ssh-agent -s)" >/dev/null
 ssh-add "$T/test_key" 2>/dev/null
 trap 'ssh-agent -k >/dev/null 2>&1 || true' EXIT
-HAOS_SKIP_VM=1 CONFIG="$T/test.env" "$REPO/bin/provision.sh" "$ip" tester
+SUDO_PASS=tester-pw HAOS_SKIP_VM=1 CONFIG="$T/test.env" "$REPO/bin/provision.sh" "$ip" tester
 
 echo "==> Verifying stage 2 results"
 "${SSH[@]}" "tester@$ip" 'systemctl is-active libvirtd; nmcli -t -f NAME,DEVICE,STATE connection show --active; ip -4 -o addr show br0; sudo -n ufw status 2>/dev/null | grep -E "br0|virbr0" || true; sudo -n virsh net-list --all 2>/dev/null || true'
