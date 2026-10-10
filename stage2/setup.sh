@@ -36,7 +36,7 @@ step "Syncing package databases and updating the system"
 env LC_ALL=C OMARCHY_UPDATE_PACMAN=1 pacman -Syu --noconfirm --overwrite '/usr/share/omarchy/*'
 
 step "Installing virtualization packages"
-omarchy-pkg-add qemu-desktop libvirt virt-install virt-manager virt-viewer edk2-ovmf dnsmasq swtpm bridge-utils
+omarchy-pkg-add qemu-desktop libvirt virt-install virt-manager virt-viewer edk2-ovmf dnsmasq swtpm
 
 step "Enabling libvirtd"
 systemctl enable --now libvirtd.service >/dev/null

@@ -30,7 +30,7 @@ echo "==> Copying stage2/"
 rsync -a --delete -e "${SSH[*]}" "$REPO/stage2/" "$target:omarchy-haos-stage2/"
 
 stage_cmd() {  # $1 = sudo invocation to prefix
-  echo "$1 systemctl reset-failed $UNIT 2>/dev/null; $1 systemd-run --unit=$UNIT --collect ${EXTRA_ENV[*]} -p WorkingDirectory=\$HOME bash \$HOME/omarchy-haos-stage2/setup.sh"
+  echo "$1 systemctl reset-failed $UNIT 2>/dev/null; $1 systemd-run --unit=$UNIT ${EXTRA_ENV[*]} -p WorkingDirectory=\$HOME bash \$HOME/omarchy-haos-stage2/setup.sh"
 }
 if [[ -n ${SUDO_PASS:-} ]]; then
   # Non-interactive (used by bin/test-in-vm.sh): feed the password to sudo -S.
@@ -51,7 +51,7 @@ while :; do
   esac
 done
 "${SSH[@]}" "$target" "tail -n 40 /var/log/omarchy-haos-stage2.log 2>/dev/null || sudo -n tail -n 40 /var/log/omarchy-haos-stage2.log"
-if [[ $state == inactive ]]; then
+if [[ $state == inactive ]] && "${SSH[@]}" "$target" "systemctl show -p Result --value $UNIT | grep -qx success"; then
   echo "==> stage 2 finished on $HOST"
 else
   echo "==> stage 2 ended with state '$state' on $HOST; see /var/log/omarchy-haos-stage2.log" >&2

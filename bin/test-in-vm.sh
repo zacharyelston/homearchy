@@ -97,6 +97,6 @@ trap 'ssh-agent -k >/dev/null 2>&1 || true' EXIT
 SUDO_PASS=tester-pw HAOS_SKIP_VM=1 CONFIG="$T/test.env" "$REPO/bin/provision.sh" "$ip" tester
 
 echo "==> Verifying stage 2 results"
-"${SSH[@]}" "tester@$ip" 'systemctl is-active libvirtd; nmcli -t -f NAME,DEVICE,STATE connection show --active; ip -4 -o addr show br0; sudo -n ufw status 2>/dev/null | grep -E "br0|virbr0" || true; sudo -n virsh net-list --all 2>/dev/null || true'
+"${SSH[@]}" "tester@$ip" 'set -e; systemctl is-active libvirtd; nmcli -t -f NAME,DEVICE,STATE connection show --active; ip -4 -o addr show br0 | grep -q inet && echo "br0 has IPv4"; ip -4 -o addr show br0; getent group libvirt' || { echo "FAILED: stage 2 verification"; exit 1; }
 echo
 echo "PASS: unattended install + stage 2 succeeded in VM $VM ($ip). Remove with: $0 --destroy"
