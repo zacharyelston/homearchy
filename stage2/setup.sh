@@ -8,6 +8,10 @@
 #   3. opens ufw for bridged and NAT VM traffic
 #   4. defines a libvirt network on br0
 #   5. downloads Home Assistant OS and creates/autostarts the VM
+#   6. passes the USB devices listed in HAOS_USB_HOSTDEVS (haos.env) through to the VM
+#
+# The invoking user is added to the libvirt group (virsh without sudo) and the
+# uucp group (serial devices such as Zigbee dongles, /dev/ttyUSB*, /dev/ttyACM*).
 #
 # Env: HAOS_SKIP_VM=1 skips step 5 (used by the VM-in-VM test).
 #      HAOS_SKIP_BRIDGE=1 keeps NAT networking (no br0).
@@ -43,6 +47,10 @@ systemctl enable --now libvirtd.service >/dev/null
 [[ -n $REAL_USER ]] && usermod -aG libvirt "$REAL_USER"
 virsh net-autostart default >/dev/null 2>&1 || true
 virsh net-start default >/dev/null 2>&1 || true
+
+step "Serial device access (uucp group)"
+# Arch grants /dev/ttyUSB* and /dev/ttyACM* to group uucp. Needed to probe or flash a dongle from the host.
+if [[ -n $REAL_USER ]]; then usermod -aG uucp "$REAL_USER"; echo "    $REAL_USER is in uucp"; else echo "    no user to add"; fi
 
 step "Firewall rules for VM traffic (ufw)"
 ufw_status=$(ufw status 2>/dev/null || true)
@@ -154,6 +162,33 @@ else
     --noautoconsole >/dev/null
 fi
 
+step "USB passthrough to '$VM_NAME'"
+usb_present() {   # is vendor:product plugged into the host?
+  local d
+  for d in /sys/bus/usb/devices/*; do
+    [[ -f $d/idVendor ]] || continue
+    [[ $(<"$d/idVendor"):$(<"$d/idProduct") == "$1" ]] && return 0
+  done
+  return 1
+}
+if [[ -z ${HAOS_USB_HOSTDEVS:-} ]]; then
+  echo "    HAOS_USB_HOSTDEVS is empty, nothing to attach"
+fi
+for id in ${HAOS_USB_HOSTDEVS:-}; do
+  v=${id%%:*}; p=${id##*:}
+  attached=$(virsh dumpxml --inactive "$VM_NAME" | xmllint --xpath \
+    "count(//hostdev[@type='usb']/source[vendor/@id='0x$v' and product/@id='0x$p'])" -)
+  if [[ $attached != 0 ]]; then
+    echo "    $id already attached"
+  elif ! usb_present "$id"; then
+    echo "    $id is not plugged in; skipping (re-run stage2 once it is)"
+  else
+    # --update also hot-plugs into a running VM. startupPolicy=optional lets the VM boot without the device.
+    virt-xml "$VM_NAME" --add-device --hostdev "$v:$p,source.startupPolicy=optional" --update >/dev/null
+    echo "    attached $id"
+  fi
+done
+
 step "Waiting for the VM's IP address"
 ip=""
 for _ in $(seq 1 60); do
@@ -172,5 +207,5 @@ else
   echo "VM is running but has no IP yet. Check later: virsh domifaddr $VM_NAME --source arp"
 fi
 echo "First boot of Home Assistant takes a few minutes before onboarding appears."
-[[ -n $REAL_USER ]] && echo "$REAL_USER was added to the libvirt group; re-login to use virsh without sudo."
+[[ -n $REAL_USER ]] && echo "$REAL_USER was added to the libvirt and uucp groups; re-login for virsh without sudo and serial access."
 exit 0

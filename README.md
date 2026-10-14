@@ -83,10 +83,11 @@ On the target: wired Ethernet during install, Secure Boot off. Whole disk is wip
    bash /run/media/$USER/CIDATA/stage2/bootstrap.sh --local
    ```
 
-   Stage 2 installs qemu/libvirt, bridges the wired NIC as `br0` (the host keeps
-   its MAC and therefore its IP), opens ufw for VM traffic, downloads Home
-   Assistant OS and creates the `homeassistant` VM (4 GB RAM, 2 vCPUs, 32 GB
-   disk, autostart). It prints the VM's LAN address; onboarding is at
+   Stage 2 installs qemu/libvirt, adds your user to the `libvirt` and `uucp`
+   groups, bridges the wired NIC as `br0` (the host keeps its MAC and therefore
+   its IP), opens ufw for VM traffic, downloads Home Assistant OS, creates the
+   `homeassistant` VM (4 GB RAM, 2 vCPUs, 32 GB disk, autostart) and passes
+   through the USB devices listed in `HAOS_USB_HOSTDEVS` (a Zigbee dongle). It prints the VM's LAN address; onboarding is at
    `http://<ip>/` or `http://homeassistant.local/` (Home Assistant OS 18 serves the UI on port 80; the Supervisor observer is on port 4357). Log:
    `/var/log/homearchy-stage2.log`. Re-running is safe.
 
@@ -101,7 +102,12 @@ inside it (skipping the nested Home Assistant VM). Needs libvirt and ~10 GB.
 - `stage2/haos.env`: Home Assistant OS version, VM RAM/CPUs/disk, bridge name.
 - `HAOS_SKIP_BRIDGE=1 bin/provision.sh <host>` keeps NAT networking instead of
   bridging (Home Assistant then only reachable from the host).
-- USB Zigbee/Z-Wave sticks: `virt-xml homeassistant --add-device --hostdev <vendor>:<product>`.
+- USB Zigbee/Z-Wave sticks: list their `vendor:product` IDs in `HAOS_USB_HOSTDEVS`
+  (`stage2/haos.env`; find them with `bin/zigbee-probe.sh --list`). Stage 2 attaches
+  them idempotently and the VM still boots if one is unplugged. Test a dongle with
+  `bin/zigbee-probe.sh` before it is handed to the VM, then set up ZHA with
+  `bin/ha-zha-setup.sh` (needs SSH key login to the Home Assistant SSH add-on); see
+  `docs/home-assistant.md`.
 
 ## Troubleshooting
 
@@ -122,10 +128,12 @@ bin/make-cidata.sh     config.env -> build/cidata/ + build/cidata.img
 bin/make-usb.sh        ISO download/verify, dd, append CIDATA partition
 bin/provision.sh       push stage2/ over SSH and run it as a systemd unit
 bin/test-in-vm.sh      end-to-end test in a local VM
+bin/zigbee-probe.sh    list USB/serial devices, test a Zigbee dongle's EZSP handshake
+bin/ha-zha-setup.sh    configure the ZHA integration over SSH + the Supervisor API (idempotent)
 lib/                   archinstall template (from upstream omarchy-iso tests), signing key
 stage2/setup.sh        the host setup (idempotent)
 stage2/bootstrap.sh    curl / offline entry point for setup.sh
-stage2/haos.env        VM parameters
+stage2/haos.env        VM parameters, USB passthrough list (HAOS_USB_HOSTDEVS)
 ```
 
 Upstream references: [omarchy-iso](https://github.com/omacom/omarchy-iso)
